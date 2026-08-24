@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "SchoolBud",
+      "hasCanvas": false,
+      "bodyTextLen": 577,
+      "bodyTextHash": "f6932fc44e522bc51164bd3ccae7a2197fa62d4427139a970c379fce3d604f44",
+      "bodyTextPrefix": "SchoolBud Homework Helper Calendar Chatbot YOUR STUDY BUDDY Welc",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "SchoolBud",
+      "hasCanvas": false,
+      "bodyTextLen": 575,
+      "bodyTextHash": "4779c80217251e7c2b534ce4efcc6bc61ae32335044a50eaf0e910d96f0f7f40",
+      "bodyTextPrefix": "SchoolBud YOUR STUDY BUDDY Welcome Back, Ben Not Ben? Change nam",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
