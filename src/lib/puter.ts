@@ -3,6 +3,13 @@ export type ChatMessage = {
   content: string;
 };
 
+export type PuterUser = {
+  uuid?: string;
+  username?: string;
+  email?: string;
+  [key: string]: unknown;
+};
+
 type PuterChatOpts = {
   model?: string;
   stream?: boolean;
@@ -18,8 +25,18 @@ type PuterAPI = {
     ) => Promise<unknown>;
   };
   auth?: {
-    signIn: () => Promise<unknown>;
+    signIn: (options?: {
+      attempt_temp_user_creation?: boolean;
+      request_auth?: boolean;
+    }) => Promise<unknown>;
+    signOut?: () => Promise<void> | void;
     isSignedIn?: () => boolean;
+    getUser?: () => Promise<PuterUser>;
+  };
+  kv?: {
+    set: (key: string, value: unknown) => Promise<boolean>;
+    get: (key: string) => Promise<unknown>;
+    del?: (key: string) => Promise<boolean>;
   };
 };
 
@@ -184,9 +201,55 @@ export async function streamChat(options: {
 
 export async function signInPuter() {
   const puter = await ensurePuter();
-  if (puter.auth?.signIn) {
-    await puter.auth.signIn();
+  if (!puter.auth?.signIn) {
+    throw new Error("Puter sign-in is not available.");
   }
+  await puter.auth.signIn();
+}
+
+export async function signOutPuter() {
+  const puter = await ensurePuter();
+  if (puter.auth?.signOut) {
+    await puter.auth.signOut();
+  }
+}
+
+export function isPuterSignedIn(): boolean {
+  if (typeof window === "undefined" || !window.puter?.auth?.isSignedIn) {
+    return false;
+  }
+  try {
+    return !!window.puter.auth.isSignedIn();
+  } catch {
+    return false;
+  }
+}
+
+export async function getPuterUser(): Promise<PuterUser | null> {
+  const puter = await ensurePuter();
+  if (!puter.auth?.getUser) return null;
+  try {
+    return await puter.auth.getUser();
+  } catch {
+    return null;
+  }
+}
+
+export async function kvSet(key: string, value: unknown): Promise<boolean> {
+  const puter = await ensurePuter();
+  if (!puter.kv?.set) {
+    throw new Error("Puter key-value store is not available.");
+  }
+  return puter.kv.set(key, value);
+}
+
+export async function kvGet<T = unknown>(key: string): Promise<T | null> {
+  const puter = await ensurePuter();
+  if (!puter.kv?.get) {
+    throw new Error("Puter key-value store is not available.");
+  }
+  const value = await puter.kv.get(key);
+  return (value as T) ?? null;
 }
 
 export function looksLikeAuthError(err: unknown) {
