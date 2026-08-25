@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,6 +35,7 @@ function CalendarPage() {
   const name = useSchool((s) => s.name);
   const events = useSchool((s) => s.events);
   const addEvent = useSchool((s) => s.addEvent);
+  const updateEvent = useSchool((s) => s.updateEvent);
   const removeEvent = useSchool((s) => s.removeEvent);
   const turns = useSchool((s) => s.calendarChat);
   const setTurns = useSchool((s) => s.setCalendarChat);
@@ -45,7 +46,8 @@ function CalendarPage() {
     () => new Date(today.getFullYear(), today.getMonth(), 1),
   );
   const [selected, setSelected] = useState(toIsoDate(today));
-  const [open, setOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<CalEvent | null>(null);
   const [pendingStudies, setPendingStudies] = useState<
     { date: string; title: string; notes?: string }[]
   >([]);
@@ -56,6 +58,21 @@ function CalendarPage() {
   const cells = useMemo(() => buildCells(year, month), [year, month]);
   const dayEvents = eventsOnDate(events, selected);
   const upcoming = upcomingEvents(events, 8);
+
+  function openAdd() {
+    setEditing(null);
+    setDialogOpen(true);
+  }
+
+  function openEdit(event: CalEvent) {
+    setEditing(event);
+    setDialogOpen(true);
+    setSelected(event.date);
+    const d = new Date(`${event.date}T12:00:00`);
+    if (!Number.isNaN(d.getTime())) {
+      setCursor(new Date(d.getFullYear(), d.getMonth(), 1));
+    }
+  }
 
   async function send(text: string) {
     const result = await ask({
@@ -268,7 +285,7 @@ function CalendarPage() {
             <h3 className="font-display font-semibold">
               {formatPrettyDate(selected)}
             </h3>
-            <Button type="button" size="sm" onClick={() => setOpen(true)}>
+            <Button type="button" size="sm" onClick={openAdd}>
               <Plus className="size-4" />
               Add
             </Button>
@@ -284,6 +301,7 @@ function CalendarPage() {
                 <EventRow
                   key={event.id}
                   event={event}
+                  onEdit={() => openEdit(event)}
                   onRemove={() => removeEvent(event.id)}
                 />
               ))}
@@ -298,15 +316,27 @@ function CalendarPage() {
               {upcoming.map((event) => (
                 <li
                   key={event.id}
-                  className="flex items-center justify-between gap-3 text-sm"
+                  className="flex items-center justify-between gap-2 text-sm"
                 >
-                  <span className="flex min-w-0 items-center gap-2">
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left hover:opacity-90"
+                    onClick={() => openEdit(event)}
+                  >
                     <Badge tone={event.type}>{EVENT_LABEL[event.type]}</Badge>
                     <span className="truncate">{event.title}</span>
-                  </span>
+                  </button>
                   <span className="text-muted shrink-0 tabular-nums">
                     {formatPrettyDate(event.date)}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => openEdit(event)}
+                    className="text-muted hover:text-fg rounded-md p-1.5"
+                    aria-label={`Edit ${event.title}`}
+                  >
+                    <Pencil className="size-3.5" />
+                  </button>
                 </li>
               ))}
             </ul>
@@ -314,23 +344,44 @@ function CalendarPage() {
         ) : null}
       </section>
 
-      <AddEventDialog
-        open={open}
-        onOpenChange={setOpen}
+      <EventDialog
+        open={dialogOpen}
+        onOpenChange={(v) => {
+          setDialogOpen(v);
+          if (!v) setEditing(null);
+        }}
         defaultDate={selected}
-        onSave={(event) => {
-          addEvent(event);
-          setSelected(event.date);
+        event={editing}
+        onSave={(payload) => {
+          if (editing) {
+            updateEvent(editing.id, payload);
+            setSelected(payload.date);
+          } else {
+            const created = addEvent(payload);
+            setSelected(created.date);
+          }
         }}
       />
     </div>
   );
 }
 
-function EventRow({ event, onRemove }: { event: CalEvent; onRemove: () => void }) {
+function EventRow({
+  event,
+  onEdit,
+  onRemove,
+}: {
+  event: CalEvent;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
   return (
-    <li className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
+    <li className="flex items-start justify-between gap-2">
+      <button
+        type="button"
+        onClick={onEdit}
+        className="min-w-0 flex-1 rounded-md text-left hover:opacity-90"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={event.type}>{EVENT_LABEL[event.type]}</Badge>
           <span className="text-sm font-medium">{event.title}</span>
@@ -341,15 +392,25 @@ function EventRow({ event, onRemove }: { event: CalEvent; onRemove: () => void }
         {event.notes ? (
           <p className="text-muted mt-1 text-xs">{event.notes}</p>
         ) : null}
-      </div>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="text-muted hover:text-cal rounded-md p-2"
-        aria-label={`Remove ${event.title}`}
-      >
-        <Trash2 className="size-4" />
       </button>
+      <div className="flex shrink-0 items-center">
+        <button
+          type="button"
+          onClick={onEdit}
+          className="text-muted hover:text-fg rounded-md p-2"
+          aria-label={`Edit ${event.title}`}
+        >
+          <Pencil className="size-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="text-muted hover:text-cal rounded-md p-2"
+          aria-label={`Remove ${event.title}`}
+        >
+          <Trash2 className="size-4" />
+        </button>
+      </div>
     </li>
   );
 }
@@ -372,17 +433,20 @@ function Quick({
   );
 }
 
-function AddEventDialog({
+function EventDialog({
   open,
   onOpenChange,
   defaultDate,
+  event,
   onSave,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   defaultDate: string;
-  onSave: (event: Omit<CalEvent, "id">) => void;
+  event: CalEvent | null;
+  onSave: (data: Omit<CalEvent, "id">) => void;
 }) {
+  const isEdit = !!event;
   const [title, setTitle] = useState("");
   const [type, setType] = useState<EventType>("test");
   const [date, setDate] = useState(defaultDate);
@@ -391,21 +455,30 @@ function AddEventDialog({
 
   useEffect(() => {
     if (!open) return;
-    setTitle("");
-    setType("test");
-    setDate(defaultDate);
-    setTime("");
-    setNotes("");
-  }, [open, defaultDate]);
+    if (event) {
+      setTitle(event.title);
+      setType(event.type);
+      setDate(event.date);
+      setTime(event.time ?? "");
+      setNotes(event.notes ?? "");
+    } else {
+      setTitle("");
+      setType("test");
+      setDate(defaultDate);
+      setTime("");
+      setNotes("");
+    }
+  }, [open, defaultDate, event]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add to calendar</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit calendar item" : "Add to calendar"}</DialogTitle>
           <DialogDescription>
-            Tests and due dates are what the chatbot uses to schedule study
-            time.
+            {isEdit
+              ? "Change the title, type, date, time, or notes for this item."
+              : "Tests and due dates are what the chatbot uses to schedule study time."}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -473,9 +546,20 @@ function AddEventDialog({
               rows={3}
             />
           </label>
-          <Button type="submit" className="w-full">
-            Save
-          </Button>
+          <div className="flex gap-2">
+            <Button type="submit" className="flex-1">
+              {isEdit ? "Save changes" : "Save"}
+            </Button>
+            {isEdit ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+            ) : null}
+          </div>
         </form>
       </DialogContent>
     </Dialog>
