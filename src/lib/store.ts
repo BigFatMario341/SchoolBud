@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { uid } from "./utils";
+import { scheduleCloudSave } from "./puter-sync";
 
 export type EventType = "test" | "homework" | "project" | "study";
 
@@ -41,31 +42,52 @@ export const EVENT_LABEL: Record<EventType, string> = {
   study: "Study",
 };
 
+function afterChange() {
+  scheduleCloudSave();
+}
+
 export const useSchool = create<SchoolState>()(
   persist(
     (set, get) => ({
       name: "Ben",
-      setName: (name) => set({ name: name.trim() || "Ben" }),
+      setName: (name) => {
+        set({ name: name.trim() || "Ben" });
+        afterChange();
+      },
       events: [],
       addEvent: (event) => {
         const next: CalEvent = { ...event, id: uid() };
         set({ events: [...get().events, next] });
+        afterChange();
         return next;
       },
-      updateEvent: (id, patch) =>
+      updateEvent: (id, patch) => {
         set({
           events: get().events.map((item) =>
             item.id === id ? { ...item, ...patch } : item,
           ),
-        }),
-      removeEvent: (id) =>
-        set({ events: get().events.filter((item) => item.id !== id) }),
+        });
+        afterChange();
+      },
+      removeEvent: (id) => {
+        set({ events: get().events.filter((item) => item.id !== id) });
+        afterChange();
+      },
       chatbot: [],
-      setChatbot: (chatbot) => set({ chatbot }),
+      setChatbot: (chatbot) => {
+        set({ chatbot });
+        afterChange();
+      },
       calendarChat: [],
-      setCalendarChat: (calendarChat) => set({ calendarChat }),
+      setCalendarChat: (calendarChat) => {
+        set({ calendarChat });
+        afterChange();
+      },
       homeworkChat: [],
-      setHomeworkChat: (homeworkChat) => set({ homeworkChat }),
+      setHomeworkChat: (homeworkChat) => {
+        set({ homeworkChat });
+        afterChange();
+      },
     }),
     { name: "schoolbud-v1" },
   ),
